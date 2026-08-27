@@ -1,0 +1,17 @@
+cff-version: 1.2.0
+message: "If you use KinetiWeave, please cite this software."
+title: "KinetiWeave: From real machines to learning worlds"
+type: software
+authors:
+  - name: "KinetiWeave contributors"
+repository-code: "https://github.com/divyanshu-iitian/kinetiweave"
+license: Apache-2.0
+version: 0.0.0
+date-released: 2026-08-27
+keywords:
+  - robotics
+  - reinforcement learning
+  - digital twin
+  - simulation
+  - 3D reconstruction
+

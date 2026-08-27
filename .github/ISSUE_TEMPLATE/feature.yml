@@ -1,0 +1,27 @@
+name: Feature proposal
+description: Propose a scoped user-facing or research capability
+title: "feat: "
+labels: [enhancement]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem
+      description: Describe the user/research problem without prescribing a solution.
+    validations:
+      required: true
+  - type: textarea
+    id: acceptance
+    attributes:
+      label: Acceptance criteria
+      description: List observable behavior, tests, and benchmark evidence.
+    validations:
+      required: true
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives and dependencies
+      description: Include existing tools, integration options, and licenses.
+    validations:
+      required: true
+

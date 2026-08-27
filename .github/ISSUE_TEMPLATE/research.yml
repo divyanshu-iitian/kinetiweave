@@ -1,0 +1,33 @@
+name: Research question
+description: Propose an evidence-backed investigation or benchmark
+title: "research: "
+labels: [research]
+body:
+  - type: textarea
+    id: question
+    attributes:
+      label: Research question
+      description: State a falsifiable question or decision this work should answer.
+    validations:
+      required: true
+  - type: textarea
+    id: prior
+    attributes:
+      label: Prior work
+      description: Link primary papers, official projects, licenses, and existing benchmarks.
+    validations:
+      required: true
+  - type: textarea
+    id: protocol
+    attributes:
+      label: Proposed protocol
+      description: Define baselines, metrics, seeds/samples, hardware, and acceptance criteria.
+    validations:
+      required: true
+  - type: textarea
+    id: license
+    attributes:
+      label: License and data considerations
+    validations:
+      required: true
+

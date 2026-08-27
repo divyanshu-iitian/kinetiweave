@@ -1,0 +1,55 @@
+# Python
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+.venv/
+venv/
+dist/
+build/
+*.egg-info/
+
+# JavaScript
+node_modules/
+.next/
+coverage/
+
+# Editors and operating systems
+.idea/
+.vscode/
+.DS_Store
+Thumbs.db
+
+# Secrets and local configuration
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+credentials*.json
+
+# Experiment outputs and large artifacts
+runs/
+outputs/
+wandb/
+checkpoints/
+datasets/
+*.ckpt
+*.pt
+*.pth
+*.onnx
+*.npz
+*.bag
+*.mcap
+
+# Generated 3D assets (small, reviewed fixtures may be force-added)
+*.glb
+*.gltf
+*.obj
+*.stl
+*.ply
+*.usd
+*.usda
+*.usdc
+
