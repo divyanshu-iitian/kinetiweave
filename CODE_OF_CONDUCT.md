@@ -27,4 +27,3 @@ We pledge to act and interact in ways that contribute to an open, welcoming, div
 Report conduct concerns privately to the project maintainers through the repository owner's contact channel. Maintainers will investigate promptly, protect reporter privacy where possible, and apply proportionate consequences, including warnings, temporary restrictions, or permanent bans.
 
 This policy is adapted from Contributor Covenant 2.1: https://www.contributor-covenant.org/version/2/1/code_of_conduct.html
-

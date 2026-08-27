@@ -40,4 +40,3 @@ Strong copyleft components may be used as separate user-installed tools after re
 - Run `python scripts/check_repository.py` before requesting review.
 
 By contributing, you agree that your contribution is licensed under Apache-2.0.
-

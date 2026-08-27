@@ -1,6 +1,6 @@
 # Open-source landscape
 
-**Reviewed:** 2026-08-27  
+**Reviewed:** 2026-08-27
 **Decision scope:** components to integrate, wrap, benchmark, or use only as references.
 
 ## Executive conclusion
@@ -90,4 +90,3 @@ We will build the canonical model, validation system, compile reports, task sche
 - How much inertia/collision derivation can be automatic without producing unsafe confidence.
 - Which open, redistributable reconstruction checkpoint provides the best laptop-quality tradeoff.
 - Whether the first ROS bridge targets Jazzy LTS or the active LTS at implementation time.
-

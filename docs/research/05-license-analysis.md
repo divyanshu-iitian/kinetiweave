@@ -1,6 +1,6 @@
 # License and attribution analysis
 
-**Reviewed:** 2026-08-27  
+**Reviewed:** 2026-08-27
 **Disclaimer:** engineering policy, not legal advice. Re-check exact versions and seek counsel for high-risk distribution.
 
 ## Project license decision
@@ -101,4 +101,3 @@ These files will be added when the first third-party runtime artifact is integra
 ## Decision record
 
 KinetiWeave will remain a clean-room integration layer: depend on compatible published APIs, do not copy implementation details unnecessarily, preserve attribution, and isolate incompatible/research-only systems behind opt-in adapters. Uncertain provenance means “do not ship,” not “ship and fix later.”
-

@@ -178,4 +178,3 @@ Failed and interrupted runs remain in the manifest with reason/status. Exclusion
 - “Digital twin” as proof of real-world fidelity without calibration/validation.
 - Geometry quality based only on screenshots or view-synthesis metrics.
 - Reproducibility based on a seed alone without software/hardware/artifact provenance.
-

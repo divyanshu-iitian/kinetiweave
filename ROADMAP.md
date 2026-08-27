@@ -68,4 +68,3 @@ Exit: a documented image set produces an inspectable asset with geometric accura
 - External installation test.
 - Hugging Face environment/model artifacts with model cards where licensing allows.
 - Research contribution statement and limitations.
-

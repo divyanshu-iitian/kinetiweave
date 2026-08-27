@@ -211,4 +211,3 @@ Errors have stable codes, entity paths, human remediation, and severity. Example
 - Cloud execution and multi-user auth: excluded from laptop-first milestones.
 - Natural-language scene generation: excluded until deterministic authoring works.
 - Physical deployment: excluded until threat model and hardware safety design exist.
-

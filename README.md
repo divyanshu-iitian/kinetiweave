@@ -108,4 +108,3 @@ Please report vulnerabilities privately using the process in [SECURITY.md](SECUR
 KinetiWeave's original code and documentation are licensed under [Apache-2.0](LICENSE). Third-party code, models, and assets retain their own licenses and must be recorded in the future dependency/asset manifests.
 
 If this foundation is useful in academic work, citation metadata is provided in [CITATION.cff](CITATION.cff).
-

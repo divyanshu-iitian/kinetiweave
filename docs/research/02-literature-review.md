@@ -1,6 +1,6 @@
 # Literature review
 
-**Reviewed:** 2026-08-27  
+**Reviewed:** 2026-08-27
 **Question:** What evidence should shape a real-object-to-RL environment platform?
 
 ## Synthesis
@@ -97,4 +97,3 @@ It does **not** claim a novel physics engine, reconstruction model, RL algorithm
 ## Limitations of this review
 
 This is a design-stage narrative review, not a systematic review or meta-analysis. Versions, licenses, and model terms can change. Every dependency/checkpoint must be re-audited at integration time and pinned to an immutable revision.
-

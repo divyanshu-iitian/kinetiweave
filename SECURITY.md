@@ -15,4 +15,3 @@ KinetiWeave is not currently approved to command physical hardware. Future sim-t
 ## Supported versions
 
 There is no released runtime yet. This policy will be updated before the first executable release.
-
