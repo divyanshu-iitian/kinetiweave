@@ -140,6 +140,6 @@ the Object Library, CAD/mesh import, and RL export; video reconstruction still n
 DA3/COLMAP backend and suitable compute.
 
 ```powershell
-hf auth login
+.\.venv\Scripts\hf.exe auth login
 .\.venv\Scripts\python.exe scripts\publish_huggingface.py
 ```

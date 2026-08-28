@@ -16,7 +16,9 @@ def main() -> None:
     try:
         account = api.whoami()
     except LocalTokenNotFoundError as exc:
-        raise SystemExit("Hugging Face login required. Run: hf auth login") from exc
+        raise SystemExit(
+            "Hugging Face login required. Run: .venv\\Scripts\\hf.exe auth login"
+        ) from exc
     repo_id = args.repo_id or f"{account['name']}/kinetiweave"
     api.create_repo(
         repo_id=repo_id,
