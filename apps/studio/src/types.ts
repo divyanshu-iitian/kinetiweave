@@ -13,6 +13,9 @@ export type JobStage =
   | "complete";
 export type CaptureProfile = "fast" | "balanced" | "quality";
 export type BackendChoice = "auto" | "da3" | "colmap";
+export type GeometryKind = "point-cloud" | "mesh" | "cad";
+export type EnvironmentStatus = "draft" | "ready" | "blocked";
+export type TaskTemplate = "stabilize" | "push-to-target";
 
 export interface Artifact {
   name: string;
@@ -76,4 +79,54 @@ export interface SystemCapabilities {
   recommended_backend: string | null;
   recommended_profile: CaptureProfile;
   limitations: string[];
+}
+
+export interface AssetRecord {
+  id: string;
+  created_at: string;
+  updated_at: string;
+  name: string;
+  source: "capture" | "import";
+  source_job_id: string | null;
+  source_filename: string;
+  original_path: string;
+  visual_path: string;
+  geometry_kind: GeometryKind;
+  media_type: string;
+  size_bytes: number;
+  vertex_count: number;
+  face_count: number;
+  dimensions_model: [number, number, number];
+  watertight: boolean | null;
+  rl_eligible: boolean;
+  warnings: string[];
+  metadata: Record<string, unknown>;
+}
+
+export interface EnvironmentRecord {
+  id: string;
+  created_at: string;
+  updated_at: string;
+  name: string;
+  asset_id: string;
+  status: EnvironmentStatus;
+  task_template: TaskTemplate;
+  simulator: "mujoco";
+  gymnasium_id: string;
+  max_episode_steps: number;
+  mass_kg: number;
+  target_size_m: number;
+  scale_to_meters: number;
+  package_path: string | null;
+  validation_errors: string[];
+  metadata: Record<string, unknown>;
+}
+
+export interface EnvironmentCreate {
+  asset_id: string;
+  name: string;
+  task_template: TaskTemplate;
+  mass_kg: number;
+  target_size_m: number;
+  max_episode_steps: number;
 }

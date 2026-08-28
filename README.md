@@ -25,13 +25,10 @@ images / video / CAD / 3D assets
 
 ## Status
 
-**Video-to-3D vertical slice.** A local FastAPI worker, durable job store, quality-aware video
-sampler, DA3 Small reconstruction adapter, optional COLMAP adapter, and browser-based 3D review
-studio are implemented. The output is explicitly labeled as a relative-scale colored point cloud
-unless a backend actually produces a surface mesh.
-
-The wider simulator-neutral digital-twin and RL roadmap remains active. Reconstruction is an input
-path into that architecture, not a claim that raw point clouds are physics-ready assets.
+**Capture-to-RL vertical slice.** The Studio now persists every successful reconstruction in an
+Object Library, imports STEP/STP and common mesh formats, records geometry evidence, and generates
+downloadable MuJoCo + Gymnasium environments after the user supplies real scale and mass. Captured
+point clouds and non-watertight meshes use an explicitly labeled convex-hull collision proxy.
 
 ## Why KinetiWeave?
 
@@ -49,6 +46,19 @@ learning into one inspectable pipeline.
 3. Select sharp, temporally distributed views and report capture-health evidence.
 4. Reconstruct relative-scale geometry with DA3 Small or an optional COLMAP installation.
 5. Inspect the real GLB artifact in a Three.js viewport and download its provenance manifest.
+6. Find the result permanently in Objects, alongside imported CAD and mesh assets.
+7. Enter a measured dimension and mass, choose an RL task, and export a runnable environment.
+
+## Object, CAD, and RL workflow
+
+- **Capture:** reconstruct video locally with DA3 Small or COLMAP.
+- **Objects:** review saved geometry or import STEP, STP, GLB, GLTF, OBJ, STL, PLY, OFF, or 3MF.
+- **Environments:** generate a conservative collision mesh, MJCF model, registered Gymnasium
+  package, manifest, and install instructions in one ZIP.
+
+STEP import preserves transferred geometry, not the original CAD application's parametric feature
+history. Every generated environment is a starting model: validate physical scale, mass, inertia,
+friction, contacts, tasks, and rewards before publishing training claims.
 
 ## Architecture decisions
 
@@ -122,3 +132,14 @@ tokens, private datasets, or proprietary CAD to public issues.
 KinetiWeave's original code and documentation are licensed under [Apache-2.0](LICENSE). Third-party
 software and models retain their own licenses; see [third-party notices](THIRD_PARTY_NOTICES.md).
 Citation metadata is provided in [CITATION.cff](CITATION.cff).
+
+## Hugging Face Space
+
+The repository includes a Docker Space definition and a guarded publisher. The free CPU image runs
+the Object Library, CAD/mesh import, and RL export; video reconstruction still needs a configured
+DA3/COLMAP backend and suitable compute.
+
+```powershell
+hf auth login
+.\.venv\Scripts\python.exe scripts\publish_huggingface.py
+```

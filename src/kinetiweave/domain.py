@@ -36,6 +36,28 @@ class BackendChoice(StrEnum):
     COLMAP = "colmap"
 
 
+class AssetSource(StrEnum):
+    CAPTURE = "capture"
+    IMPORT = "import"
+
+
+class GeometryKind(StrEnum):
+    POINT_CLOUD = "point-cloud"
+    MESH = "mesh"
+    CAD = "cad"
+
+
+class EnvironmentStatus(StrEnum):
+    DRAFT = "draft"
+    READY = "ready"
+    BLOCKED = "blocked"
+
+
+class TaskTemplate(StrEnum):
+    STABILIZE = "stabilize"
+    PUSH_TO_TARGET = "push-to-target"
+
+
 class Artifact(BaseModel):
     name: str
     kind: str
@@ -80,6 +102,56 @@ class SystemCapabilities(BaseModel):
     recommended_backend: str | None
     recommended_profile: CaptureProfile
     limitations: list[str]
+
+
+class AssetRecord(BaseModel):
+    id: str
+    created_at: datetime
+    updated_at: datetime
+    name: str
+    source: AssetSource
+    source_job_id: str | None = None
+    source_filename: str
+    original_path: str
+    visual_path: str
+    geometry_kind: GeometryKind
+    media_type: str = "model/gltf-binary"
+    size_bytes: int = Field(ge=0)
+    vertex_count: int = Field(ge=0)
+    face_count: int = Field(ge=0)
+    dimensions_model: tuple[float, float, float]
+    watertight: bool | None = None
+    rl_eligible: bool = False
+    warnings: list[str] = Field(default_factory=list)
+    metadata: dict[str, Any] = Field(default_factory=dict)
+
+
+class EnvironmentRecord(BaseModel):
+    id: str
+    created_at: datetime
+    updated_at: datetime
+    name: str
+    asset_id: str
+    status: EnvironmentStatus
+    task_template: TaskTemplate
+    simulator: str = "mujoco"
+    gymnasium_id: str
+    max_episode_steps: int = Field(ge=10, le=100_000)
+    mass_kg: float = Field(gt=0)
+    target_size_m: float = Field(gt=0)
+    scale_to_meters: float = Field(gt=0)
+    package_path: str | None = None
+    validation_errors: list[str] = Field(default_factory=list)
+    metadata: dict[str, Any] = Field(default_factory=dict)
+
+
+class EnvironmentCreate(BaseModel):
+    asset_id: str
+    name: str = Field(min_length=1, max_length=80)
+    task_template: TaskTemplate = TaskTemplate.STABILIZE
+    mass_kg: float = Field(gt=0, le=100_000)
+    target_size_m: float = Field(gt=0, le=1000)
+    max_episode_steps: int = Field(default=500, ge=10, le=100_000)
 
 
 def utc_now() -> datetime:

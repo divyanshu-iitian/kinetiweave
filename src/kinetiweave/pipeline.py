@@ -16,6 +16,7 @@ from kinetiweave.backends.base import (
     artifact_from_path,
 )
 from kinetiweave.capture import VideoValidationError, extract_frames
+from kinetiweave.catalog import CatalogService, CatalogStore
 from kinetiweave.config import Settings
 from kinetiweave.domain import BackendChoice, JobStage, JobStatus
 from kinetiweave.jobs import JobStore
@@ -30,15 +31,18 @@ class PipelineService:
         settings: Settings,
         store: JobStore,
         backends: dict[str, ReconstructionBackend] | None = None,
+        catalog: CatalogService | None = None,
     ) -> None:
         self.settings = settings
         self.store = store
+        self.catalog = catalog or CatalogService(settings, CatalogStore(settings.database_path))
         self.capabilities = detect_capabilities()
         self.backends = backends or {"da3": Da3Backend(), "colmap": ColmapBackend()}
         self.executor = ThreadPoolExecutor(
             max_workers=settings.max_workers, thread_name_prefix="kinetiweave-reconstruction"
         )
         self._recover_interrupted_jobs()
+        self._backfill_catalog()
 
     def submit(self, job_id: str) -> None:
         self.executor.submit(self.run, job_id)
@@ -74,7 +78,7 @@ class PipelineService:
             self.store.set_metadata(job_id, metadata)
 
             backend_key, backend = self._select_backend(job.backend_requested)
-            self.store.update(
+            completed = self.store.update(
                 job_id,
                 stage=JobStage.RECONSTRUCTING,
                 progress=0.3,
@@ -95,6 +99,10 @@ class PipelineService:
                     message,
                 ),
             )
+            try:
+                self.catalog.register_reconstruction(completed)
+            except Exception:
+                LOGGER.exception("Could not register reconstructed asset for job %s", job_id)
             metadata["reconstruction"] = result.metadata
             metadata["warnings"] = [*report.warnings, *result.warnings]
             metadata["backend_key"] = backend_key
@@ -177,3 +185,12 @@ class PipelineService:
                     error_code="KW_PROCESS_INTERRUPTED",
                     error_detail="Re-submit the original video to start a clean reconstruction.",
                 )
+
+    def _backfill_catalog(self) -> None:
+        for job in self.store.list(limit=100):
+            if job.status != JobStatus.SUCCEEDED:
+                continue
+            try:
+                self.catalog.register_reconstruction(job)
+            except Exception:
+                LOGGER.exception("Could not backfill reconstructed asset for job %s", job.id)

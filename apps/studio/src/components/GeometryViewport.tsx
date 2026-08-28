@@ -15,15 +15,27 @@ import type { JobRecord } from "../types";
 interface GeometryViewportProps {
   modelUrl: string | null;
   activeJob: JobRecord | null;
-  onChooseVideo: (file: File) => void;
+  onChooseVideo?: (file: File) => void;
+  emptyTitle?: string;
+  emptyBody?: string;
 }
 
 export function GeometryViewport({
   modelUrl,
   activeJob,
   onChooseVideo,
+  emptyTitle,
+  emptyBody,
 }: GeometryViewportProps) {
-  if (!activeJob) return <EmptyViewport onChooseVideo={onChooseVideo} />;
+  if (modelUrl) return <ModelViewport modelUrl={modelUrl} />;
+  if (!activeJob)
+    return (
+      <EmptyViewport
+        onChooseVideo={onChooseVideo}
+        title={emptyTitle}
+        body={emptyBody}
+      />
+    );
   if (activeJob.status === "failed") {
     return (
       <div className="viewport-state error-state">
@@ -36,8 +48,10 @@ export function GeometryViewport({
       </div>
     );
   }
-  if (!modelUrl) return <ProcessingViewport job={activeJob} />;
+  return <ProcessingViewport job={activeJob} />;
+}
 
+function ModelViewport({ modelUrl }: { modelUrl: string }) {
   return (
     <div className="canvas-wrap">
       <ViewerErrorBoundary>
@@ -90,27 +104,33 @@ function GltfModel({ url }: { url: string }) {
 
 function EmptyViewport({
   onChooseVideo,
+  title,
+  body,
 }: {
-  onChooseVideo: (file: File) => void;
+  onChooseVideo?: (file: File) => void;
+  title?: string;
+  body?: string;
 }) {
   return (
     <div className="viewport-state empty-viewport">
       <div className="empty-object">
         <Cube size={64} weight="thin" />
       </div>
-      <h2>Your capture becomes inspectable geometry.</h2>
-      <p>Keep the object still and walk one smooth orbit around it.</p>
-      <label className="viewport-upload">
-        <BoxArrowUp size={17} /> Upload capture
-        <input
-          type="file"
-          accept="video/*"
-          onChange={(event) => {
-            const file = event.target.files?.item(0);
-            if (file) onChooseVideo(file);
-          }}
-        />
-      </label>
+      <h2>{title ?? "Your capture becomes inspectable geometry."}</h2>
+      <p>{body ?? "Keep the object still and walk one smooth orbit around it."}</p>
+      {onChooseVideo && (
+        <label className="viewport-upload">
+          <BoxArrowUp size={17} /> Upload capture
+          <input
+            type="file"
+            accept="video/*"
+            onChange={(event) => {
+              const file = event.target.files?.item(0);
+              if (file) onChooseVideo(file);
+            }}
+          />
+        </label>
+      )}
     </div>
   );
 }

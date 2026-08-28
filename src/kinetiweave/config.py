@@ -31,13 +31,26 @@ class Settings:
         return self.data_dir / "jobs"
 
     @property
+    def assets_dir(self) -> Path:
+        return self.data_dir / "assets"
+
+    @property
+    def environments_dir(self) -> Path:
+        return self.data_dir / "environments"
+
+    @property
     def database_path(self) -> Path:
         return self.data_dir / "kinetiweave.sqlite3"
 
     @property
     def studio_dist(self) -> Path:
+        configured = os.getenv("KINETIWEAVE_STUDIO_DIST")
+        if configured:
+            return Path(configured).resolve()
         return Path(__file__).resolve().parents[2] / "apps" / "studio" / "dist"
 
     def ensure_directories(self) -> None:
         self.data_dir.mkdir(parents=True, exist_ok=True)
         self.jobs_dir.mkdir(parents=True, exist_ok=True)
+        self.assets_dir.mkdir(parents=True, exist_ok=True)
+        self.environments_dir.mkdir(parents=True, exist_ok=True)

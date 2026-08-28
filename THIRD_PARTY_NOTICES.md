@@ -11,6 +11,9 @@ own licenses. This file is a concise provenance index, not a replacement for ups
 | OpenCV | Video decode and quality analysis | https://github.com/opencv/opencv | Apache-2.0 |
 | FastAPI / Uvicorn | Local HTTP service | https://github.com/fastapi/fastapi | MIT / BSD-3-Clause |
 | trimesh | Geometry conversion and export | https://github.com/mikedh/trimesh | MIT |
+| cascadio / Open Cascade | STEP geometry import | https://github.com/trimesh/cascadio | MIT / LGPL-2.1 with exception |
+| Gymnasium | Reinforcement-learning environment API | https://github.com/Farama-Foundation/Gymnasium | MIT |
+| MuJoCo | Physics simulation and MJCF runtime | https://github.com/google-deepmind/mujoco | Apache-2.0 |
 | React / Three.js / React Three Fiber | Studio and 3D viewport | upstream repositories | MIT |
 | Radix Themes / Phosphor Icons | UI primitives and icons | upstream repositories | MIT |
 

@@ -10,6 +10,8 @@ import {
   Gauge,
   HardDrives,
   Info,
+  Robot,
+  Stack,
   Warning,
   X,
 } from "@phosphor-icons/react";
@@ -31,14 +33,18 @@ import {
   uploadVideo,
 } from "./api";
 import { CaptureDropzone } from "./components/CaptureDropzone";
+import { EnvironmentWorkspace } from "./components/EnvironmentWorkspace";
+import { ObjectWorkspace } from "./components/ObjectWorkspace";
 import type {
   BackendChoice,
   CaptureProfile,
   JobRecord,
   SystemCapabilities,
+  EnvironmentRecord,
 } from "./types";
 
 type Appearance = "dark" | "light";
+type WorkspaceView = "capture" | "objects" | "environments";
 
 const GeometryViewport = lazy(() =>
   import("./components/GeometryViewport").then((module) => ({
@@ -59,6 +65,9 @@ export default function App({ appearance, onAppearanceChange }: AppProps) {
   const [backend, setBackend] = useState<BackendChoice>("auto");
   const [uploadProgress, setUploadProgress] = useState<number | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [view, setView] = useState<WorkspaceView>("capture");
+  const [activeEnvironment, setActiveEnvironment] =
+    useState<EnvironmentRecord | null>(null);
 
   const activeJob = jobs.find((job) => job.id === activeId) ?? jobs[0] ?? null;
   const geometry = activeJob?.artifacts.find(
@@ -157,6 +166,17 @@ export default function App({ appearance, onAppearanceChange }: AppProps) {
             <span>Capture Studio</span>
           </div>
         </div>
+        <nav className="workspace-nav" aria-label="Studio sections">
+          <button type="button" className={view === "capture" ? "active" : ""} onClick={() => setView("capture")}>
+            <Aperture size={17} /> Capture
+          </button>
+          <button type="button" className={view === "objects" ? "active" : ""} onClick={() => setView("objects")}>
+            <Stack size={17} /> Objects
+          </button>
+          <button type="button" className={view === "environments" ? "active" : ""} onClick={() => setView("environments")}>
+            <Robot size={17} /> Environments
+          </button>
+        </nav>
         <div className="topbar-actions">
           <span className="hardware-summary">
             <Cpu size={16} /> {systemSummary}
@@ -192,7 +212,26 @@ export default function App({ appearance, onAppearanceChange }: AppProps) {
         </div>
       )}
 
-      <div className="workbench">
+      {view === "objects" && (
+        <ObjectWorkspace
+          refreshKey={jobs.filter((job) => job.status === "succeeded").length}
+          onError={setError}
+          onEnvironmentCreated={(environment) => {
+            setActiveEnvironment(environment);
+            setView("environments");
+          }}
+        />
+      )}
+
+      {view === "environments" && (
+        <EnvironmentWorkspace
+          selected={activeEnvironment}
+          onSelected={setActiveEnvironment}
+          onError={setError}
+        />
+      )}
+
+      {view === "capture" && <div className="workbench">
         <aside
           className="capture-panel panel-scroll"
           aria-label="Capture controls"
@@ -345,7 +384,7 @@ export default function App({ appearance, onAppearanceChange }: AppProps) {
         >
           <Inspector job={activeJob} system={system} />
         </aside>
-      </div>
+      </div>}
     </main>
   );
 }

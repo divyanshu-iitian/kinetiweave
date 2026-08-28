@@ -14,7 +14,7 @@ if (-not (Test-Path -LiteralPath $Python -PathType Leaf)) {
 }
 
 & $Python -m pip install --upgrade pip
-& $Python -m pip install -e "$ProjectRoot[dev]"
+& $Python -m pip install -e "$ProjectRoot[dev,rl]"
 
 if ($CpuOnly) {
     & $Python -m pip install torch torchvision
