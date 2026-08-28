@@ -1,4 +1,4 @@
-"""Fast, dependency-free checks for the research-foundation repository."""
+"""Fast, dependency-free checks for the KinetiWeave repository."""
 
 from __future__ import annotations
 
@@ -17,11 +17,16 @@ REQUIRED_FILES = (
     "CITATION.cff",
     "CHANGELOG.md",
     "ROADMAP.md",
+    "THIRD_PARTY_NOTICES.md",
+    "pyproject.toml",
+    "apps/studio/package.json",
+    "docs/video-capture-guide.md",
     "docs/research/01-landscape.md",
     "docs/research/02-literature-review.md",
     "docs/research/03-architecture.md",
     "docs/research/04-benchmark-plan.md",
     "docs/research/05-license-analysis.md",
+    "docs/research/06-video-to-3d-decision.md",
 )
 PLACEHOLDER_PATTERNS = (
     re.compile(r"\bTODO\b", re.IGNORECASE),
@@ -46,7 +51,14 @@ def main() -> int:
                 errors.append(f"placeholder '{pattern.pattern}' in {relative}")
 
     readme = (ROOT / "README.md").read_text(encoding="utf-8")
-    for report in REQUIRED_FILES[-5:]:
+    for report in (
+        "docs/research/01-landscape.md",
+        "docs/research/02-literature-review.md",
+        "docs/research/03-architecture.md",
+        "docs/research/04-benchmark-plan.md",
+        "docs/research/05-license-analysis.md",
+        "docs/research/06-video-to-3d-decision.md",
+    ):
         if report not in readme:
             errors.append(f"README does not link research report: {report}")
 

@@ -2,7 +2,11 @@
 
 Roadmap items are commitments to investigate or build, not claims of current functionality. A phase exits only when its acceptance criteria, tests, documentation, and benchmark evidence are complete.
 
-## M0 — Research foundation (current)
+M0 is complete. The current mainline focus is M1; a tested M5 video-to-3D vertical slice has also
+landed early, but M5 remains open until scale recovery, cleanup, benchmarks, and acceptance evidence
+are complete.
+
+## M0 — Research foundation (complete)
 
 - Ecosystem and literature review.
 - Architecture and simulator boundary.
