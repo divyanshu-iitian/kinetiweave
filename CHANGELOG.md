@@ -6,6 +6,9 @@ All notable changes will be documented here. The format follows Keep a Changelog
 
 ### Added
 
+- Contact-driven 2-DoF planar-pusher tasks with goal-aware Gymnasium observations.
+- Deterministic MuJoCo compile/rollout validation, persisted evidence, and re-validation API/UI.
+- Environment task-contract and physics-evidence views in the responsive Studio.
 - Persistent Object Library for successful captures and imported CAD/mesh geometry.
 - STEP/STP, GLB/GLTF, OBJ, STL, PLY, OFF, and 3MF ingestion with evidence and warnings.
 - Measured scale/mass workflow and downloadable MuJoCo + Gymnasium RL packages.

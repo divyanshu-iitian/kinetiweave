@@ -22,6 +22,9 @@ from kinetiweave.domain import (
     EnvironmentStatus,
     GeometryKind,
     JobRecord,
+    PhysicsValidation,
+    TaskTemplate,
+    ValidationStatus,
     utc_now,
 )
 
@@ -324,7 +327,9 @@ class CatalogService:
         if errors:
             return record
         try:
-            package_path, build_metadata = self._build_environment_package(record, asset)
+            package_path, build_metadata, validation = self._build_environment_package(
+                record, asset
+            )
         except Exception as exc:
             failed = record.model_copy(
                 update={
@@ -339,6 +344,7 @@ class CatalogService:
                 "updated_at": utc_now(),
                 "status": EnvironmentStatus.READY,
                 "package_path": str(package_path),
+                "validation": validation,
                 "metadata": {**record.metadata, **build_metadata},
             }
         )
@@ -346,7 +352,7 @@ class CatalogService:
 
     def _build_environment_package(
         self, environment: EnvironmentRecord, asset: AssetRecord
-    ) -> tuple[Path, dict[str, Any]]:
+    ) -> tuple[Path, dict[str, Any], PhysicsValidation]:
         env_root = self.settings.environments_dir / environment.id
         package_name = f"kinetiweave_env_{environment.id[:8]}"
         project_root = env_root / package_name
@@ -366,19 +372,29 @@ class CatalogService:
         hull.export(collision_path)
         shutil.copy2(asset.visual_path, assets_root / "visual.glb")
         half_height = float(max(abs(hull.bounds[0, 2]), abs(hull.bounds[1, 2])))
+        half_width = float(max(abs(hull.bounds[0, 0]), abs(hull.bounds[1, 0])))
         spawn_z = half_height + 0.015
+        pusher_start_x = -(half_width + 0.075)
+        target_x = (
+            max(0.30, half_width * 3.0)
+            if environment.task_template is TaskTemplate.PUSH_TO_TARGET
+            else 0.0
+        )
 
         model_xml = _mujoco_xml(
             environment.name,
             environment.mass_kg,
             spawn_z,
+            target_x,
+            pusher_start_x,
         )
-        (assets_root / "model.xml").write_text(model_xml, encoding="utf-8")
+        model_path = assets_root / "model.xml"
+        model_path.write_text(model_xml, encoding="utf-8")
         (module_root / "__init__.py").write_text(
             _package_init(environment, package_name), encoding="utf-8"
         )
         (module_root / "env.py").write_text(
-            _environment_module(environment, spawn_z), encoding="utf-8"
+            _environment_module(environment, spawn_z, target_x), encoding="utf-8"
         )
         (project_root / "pyproject.toml").write_text(
             _environment_pyproject(package_name), encoding="utf-8"
@@ -386,23 +402,98 @@ class CatalogService:
         (project_root / "README.md").write_text(
             _environment_readme(environment, asset, package_name), encoding="utf-8"
         )
+        validation = _run_physics_validation(model_path, spawn_z, target_x)
+        if validation.status is ValidationStatus.FAILED:
+            raise EnvironmentBuildError(
+                "MuJoCo compiled the package but its deterministic rollout was unstable."
+            )
+        collision_proxy = {
+            "method": "convex-hull",
+            "vertices": int(len(hull.vertices)),
+            "faces": int(len(hull.faces)),
+            "watertight": bool(hull.is_watertight),
+            "spawn_height_m": spawn_z,
+        }
+        task_model = {
+            "controller": "actuated-planar-pusher",
+            "action": "2D pusher velocity",
+            "action_dimensions": 2,
+            "observation": "goal-aware Dict",
+            "reward": (
+                "dense object-goal distance with control cost"
+                if environment.task_template is TaskTemplate.PUSH_TO_TARGET
+                else "upright stability and displacement with control cost"
+            ),
+            "target_x_m": target_x,
+            "pusher_start_x_m": pusher_start_x,
+        }
         manifest = {
             "environment": environment.model_dump(mode="json", exclude={"package_path"}),
             "asset": asset.model_dump(mode="json", exclude={"original_path", "visual_path"}),
-            "collision_proxy": {
-                "method": "convex-hull",
-                "vertices": int(len(hull.vertices)),
-                "faces": int(len(hull.faces)),
-                "watertight": bool(hull.is_watertight),
-                "spawn_height_m": spawn_z,
-            },
+            "collision_proxy": collision_proxy,
+            "task_model": task_model,
+            "physics_validation": validation.model_dump(mode="json"),
         }
         (project_root / "manifest.json").write_text(
             json.dumps(manifest, indent=2), encoding="utf-8"
         )
+        (project_root / "validation.json").write_text(
+            validation.model_dump_json(indent=2), encoding="utf-8"
+        )
         archive_base = env_root / package_name
         archive = Path(shutil.make_archive(str(archive_base), "zip", env_root, package_name))
-        return archive, manifest["collision_proxy"]
+        return (
+            archive,
+            {"collision_proxy": collision_proxy, "task_model": task_model},
+            validation,
+        )
+
+    def validate_environment(self, environment_id: str) -> EnvironmentRecord:
+        environment = self.store.get_environment(environment_id)
+        if not environment.package_path:
+            raise EnvironmentBuildError("Environment package is not ready for validation.")
+        package_path = Path(environment.package_path)
+        package_name = package_path.stem
+        project_root = package_path.parent / package_name
+        model_path = project_root / package_name / "assets" / "model.xml"
+        task_model = environment.metadata.get("task_model")
+        if not isinstance(task_model, dict) or task_model.get("controller") != (
+            "actuated-planar-pusher"
+        ):
+            raise EnvironmentBuildError(
+                "This legacy package predates embodied control. Rebuild it from Objects."
+            )
+        collision = environment.metadata.get("collision_proxy", {})
+        spawn_z = float(collision.get("spawn_height_m", 0.05))
+        target_x = float(task_model.get("target_x_m", 0.0))
+        validation = _run_physics_validation(model_path, spawn_z, target_x)
+        manifest_path = project_root / "manifest.json"
+        manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+        manifest["physics_validation"] = validation.model_dump(mode="json")
+        manifest_path.write_text(json.dumps(manifest, indent=2), encoding="utf-8")
+        (project_root / "validation.json").write_text(
+            validation.model_dump_json(indent=2), encoding="utf-8"
+        )
+        shutil.make_archive(
+            str(package_path.with_suffix("")), "zip", package_path.parent, package_name
+        )
+        updated = environment.model_copy(
+            update={
+                "updated_at": utc_now(),
+                "status": (
+                    EnvironmentStatus.READY
+                    if validation.status is ValidationStatus.PASSED
+                    else EnvironmentStatus.BLOCKED
+                ),
+                "validation": validation,
+                "validation_errors": (
+                    []
+                    if validation.status is ValidationStatus.PASSED
+                    else ["Deterministic MuJoCo rollout failed stability checks."]
+                ),
+            }
+        )
+        return self.store.put_environment(updated)
 
 
 def _load_scene(path: Path) -> trimesh.Scene:
@@ -470,26 +561,142 @@ def _pascal_slug(value: str) -> str:
     return "".join(part.capitalize() for part in value.split("-") if part) or "Object"
 
 
-def _mujoco_xml(name: str, mass_kg: float, spawn_z: float) -> str:
+def _mujoco_xml(
+    name: str,
+    mass_kg: float,
+    spawn_z: float,
+    target_x: float,
+    pusher_start_x: float,
+) -> str:
     safe_name = escape(name)
     return f"""<mujoco model="{safe_name}">
   <compiler angle="radian" meshdir="."/>
-  <option timestep="0.01" gravity="0 0 -9.81"/>
+  <option timestep="0.005" gravity="0 0 -9.81" integrator="implicitfast"/>
+  <default>
+    <joint damping="1.2" armature="0.02"/>
+  </default>
   <asset>
     <mesh name="object_collision" file="collision.stl"/>
   </asset>
   <worldbody>
     <light pos="1 -1 3" diffuse="0.8 0.8 0.8"/>
-    <geom name="ground" type="plane" size="2 2 0.1" rgba="0.16 0.17 0.15 1"/>
+    <geom name="ground" type="plane" size="2 2 0.1" contype="1" conaffinity="1"
+          friction="0.9 0.02 0.002" rgba="0.16 0.17 0.15 1"/>
+    <body name="pusher" pos="{pusher_start_x:.8f} 0 0">
+      <joint name="pusher_x" type="slide" axis="1 0 0" range="-0.1 0.8"/>
+      <joint name="pusher_y" type="slide" axis="0 1 0" range="-0.45 0.45"/>
+      <geom name="pusher_geom" type="capsule" fromto="0 0 0.015 0 0 0.16"
+            size="0.025" mass="0.15" contype="2" conaffinity="1"
+            friction="1.0 0.02 0.002" rgba="0.20 0.62 0.90 1"/>
+      <site name="pusher_tip" pos="0 0 0.08" size="0.018" rgba="0.3 0.75 1 1"/>
+    </body>
     <body name="object" pos="0 0 {spawn_z:.8f}">
       <freejoint name="object_free"/>
       <geom name="object_geom" type="mesh" mesh="object_collision" mass="{mass_kg:.8f}"
-            friction="0.8 0.02 0.002" rgba="0.82 0.36 0.08 1"/>
+            contype="1" conaffinity="3" friction="0.8 0.02 0.002"
+            rgba="0.82 0.36 0.08 1"/>
     </body>
-    <site name="target" pos="0.35 0 0.02" size="0.035" rgba="0.2 0.8 0.4 0.8"/>
+    <site name="target" pos="{target_x:.8f} 0 0.012" type="cylinder"
+          size="0.055 0.002" rgba="0.20 0.78 0.42 0.72"/>
   </worldbody>
+  <actuator>
+    <velocity name="pusher_x_velocity" joint="pusher_x" kv="25" ctrlrange="-0.6 0.6"/>
+    <velocity name="pusher_y_velocity" joint="pusher_y" kv="25" ctrlrange="-0.6 0.6"/>
+  </actuator>
 </mujoco>
 """
+
+
+def _run_physics_validation(model_path: Path, spawn_z: float, target_x: float) -> PhysicsValidation:
+    try:
+        import mujoco
+    except ImportError as exc:
+        raise EnvironmentBuildError(
+            "MuJoCo is required to validate generated environments. Install the rl extra."
+        ) from exc
+
+    model = mujoco.MjModel.from_xml_path(str(model_path))
+    data = mujoco.MjData(model)
+    object_body = mujoco.mj_name2id(model, mujoco.mjtObj.mjOBJ_BODY, "object")
+    pusher_body = mujoco.mj_name2id(model, mujoco.mjtObj.mjOBJ_BODY, "pusher")
+    object_geom = mujoco.mj_name2id(model, mujoco.mjtObj.mjOBJ_GEOM, "object_geom")
+    pusher_geom = mujoco.mj_name2id(model, mujoco.mjtObj.mjOBJ_GEOM, "pusher_geom")
+    object_joint = mujoco.mj_name2id(model, mujoco.mjtObj.mjOBJ_JOINT, "object_free")
+    object_qpos_adr = int(model.jnt_qposadr[object_joint])
+    data.qpos[object_qpos_adr : object_qpos_adr + 3] = [0.0, 0.0, spawn_z]
+    data.qpos[object_qpos_adr + 3 : object_qpos_adr + 7] = [1.0, 0.0, 0.0, 0.0]
+    mujoco.mj_forward(model, data)
+
+    finite = True
+    contact_steps = 0
+    min_height = float(data.xpos[object_body, 2])
+    max_speed = 0.0
+    simulation_steps = 180
+    for _ in range(simulation_steps):
+        if target_x > 0:
+            pusher_position = data.xpos[pusher_body, :2]
+            object_position = data.xpos[object_body, :2]
+            desired = object_position + np.array([-0.035, 0.0])
+            data.ctrl[:] = np.clip((desired - pusher_position) * 4.0, -0.45, 0.45)
+        else:
+            data.ctrl[:] = 0.0
+        mujoco.mj_step(model, data, nstep=5)
+        finite = finite and bool(
+            np.isfinite(data.qpos).all()
+            and np.isfinite(data.qvel).all()
+            and np.isfinite(data.qacc).all()
+        )
+        min_height = min(min_height, float(data.xpos[object_body, 2]))
+        max_speed = max(max_speed, float(np.linalg.norm(data.qvel)))
+        for contact in data.contact[: data.ncon]:
+            if {int(contact.geom1), int(contact.geom2)} == {object_geom, pusher_geom}:
+                contact_steps += 1
+                break
+
+    target = np.array([target_x, 0.0])
+    target_error = float(np.linalg.norm(data.xpos[object_body, :2] - target))
+    stable_height = min_height > -0.02
+    bounded_speed = max_speed < 50.0
+    contact_ok = target_x <= 0 or contact_steps > 0
+    passed = finite and stable_height and bounded_speed and contact_ok
+    checks = [
+        "MJCF compiled successfully.",
+        (
+            "All generalized positions, velocities, and accelerations remained finite."
+            if finite
+            else "Non-finite simulator state was detected."
+        ),
+        (
+            "Object remained above the world floor tolerance."
+            if stable_height
+            else "Object crossed the world floor tolerance."
+        ),
+        (
+            "Actuated pusher made object contact."
+            if contact_ok and target_x > 0
+            else (
+                "Passive stability task does not require pusher contact."
+                if target_x <= 0
+                else "Actuated pusher did not make object contact."
+            )
+        ),
+    ]
+    return PhysicsValidation(
+        status=ValidationStatus.PASSED if passed else ValidationStatus.FAILED,
+        checked_at=utc_now(),
+        model_compiled=True,
+        finite_rollout=finite,
+        simulation_steps=simulation_steps * 5,
+        simulated_seconds=simulation_steps * 5 * float(model.opt.timestep),
+        pusher_object_contacts=contact_steps,
+        final_target_error_m=target_error,
+        min_object_height_m=min_height,
+        max_generalized_speed=max_speed,
+        nq=int(model.nq),
+        nv=int(model.nv),
+        nu=int(model.nu),
+        checks=checks,
+    )
 
 
 def _package_init(environment: EnvironmentRecord, package_name: str) -> str:
@@ -503,7 +710,7 @@ register(
 '''
 
 
-def _environment_module(environment: EnvironmentRecord, spawn_z: float) -> str:
+def _environment_module(environment: EnvironmentRecord, spawn_z: float, target_x: float) -> str:
     task = environment.task_template.value
     return f'''from __future__ import annotations
 
@@ -516,7 +723,7 @@ from gymnasium import spaces
 
 
 class KinetiWeaveObjectEnv(gym.Env):
-    """Generated MuJoCo environment with explicit provenance in manifest.json."""
+    """Goal-aware contact task with an actuated planar pusher."""
 
     metadata = {{"render_modes": []}}
 
@@ -525,41 +732,94 @@ class KinetiWeaveObjectEnv(gym.Env):
         self.model = mujoco.MjModel.from_xml_path(str(model_path))
         self.data = mujoco.MjData(self.model)
         self.body_id = mujoco.mj_name2id(self.model, mujoco.mjtObj.mjOBJ_BODY, "object")
+        self.pusher_id = mujoco.mj_name2id(self.model, mujoco.mjtObj.mjOBJ_BODY, "pusher")
+        object_joint = mujoco.mj_name2id(
+            self.model, mujoco.mjtObj.mjOBJ_JOINT, "object_free"
+        )
+        pusher_x_joint = mujoco.mj_name2id(
+            self.model, mujoco.mjtObj.mjOBJ_JOINT, "pusher_x"
+        )
+        pusher_y_joint = mujoco.mj_name2id(
+            self.model, mujoco.mjtObj.mjOBJ_JOINT, "pusher_y"
+        )
+        self.object_qpos_adr = int(self.model.jnt_qposadr[object_joint])
+        self.pusher_qpos_adrs = (
+            int(self.model.jnt_qposadr[pusher_x_joint]),
+            int(self.model.jnt_qposadr[pusher_y_joint]),
+        )
+        self.pusher_dof_adrs = (
+            int(self.model.jnt_dofadr[pusher_x_joint]),
+            int(self.model.jnt_dofadr[pusher_y_joint]),
+        )
         self.task = "{task}"
         self.spawn_z = {spawn_z:.8f}
-        self.target = np.array([0.35, 0.0, self.spawn_z], dtype=np.float64)
-        self.frame_skip = 5
-        self.force_scale = {environment.mass_kg:.8f} * 9.81
-        self.action_space = spaces.Box(-1.0, 1.0, shape=(3,), dtype=np.float32)
-        self.observation_space = spaces.Box(
-            low=-np.inf, high=np.inf, shape=(16,), dtype=np.float64
-        )
+        self.target = np.array([{target_x:.8f}, 0.0, self.spawn_z], dtype=np.float64)
+        self.frame_skip = 10
+        self.action_space = spaces.Box(-1.0, 1.0, shape=(2,), dtype=np.float32)
+        vector_space = spaces.Box(low=-1e6, high=1e6, shape=(21,), dtype=np.float64)
+        goal_space = spaces.Box(low=-10.0, high=10.0, shape=(3,), dtype=np.float64)
+        self.observation_space = spaces.Dict({{
+            "observation": vector_space,
+            "achieved_goal": goal_space,
+            "desired_goal": goal_space,
+        }})
 
     def _observation(self):
-        return np.concatenate((self.data.qpos.copy(), self.data.qvel.copy(), self.target))
+        object_position = self.data.xpos[self.body_id].copy()
+        pusher_position = self.data.xpos[self.pusher_id].copy()
+        quaternion = self.data.qpos[
+            self.object_qpos_adr + 3 : self.object_qpos_adr + 7
+        ].copy()
+        pusher_velocity = np.array([
+            self.data.qvel[self.pusher_dof_adrs[0]],
+            self.data.qvel[self.pusher_dof_adrs[1]],
+        ])
+        object_velocity = self.data.cvel[self.body_id].copy()
+        vector = np.concatenate((
+            pusher_position,
+            object_position,
+            object_position - pusher_position,
+            quaternion,
+            pusher_velocity,
+            object_velocity,
+        ))
+        return {{
+            "observation": vector,
+            "achieved_goal": object_position,
+            "desired_goal": self.target.copy(),
+        }}
+
+    def compute_reward(self, achieved_goal, desired_goal, info):
+        distance = np.linalg.norm(
+            np.asarray(achieved_goal)[..., :2] - np.asarray(desired_goal)[..., :2],
+            axis=-1,
+        )
+        return -distance
 
     def reset(self, *, seed=None, options=None):
         super().reset(seed=seed)
         mujoco.mj_resetData(self.model, self.data)
-        self.data.qpos[:3] = [0.0, 0.0, self.spawn_z]
-        self.data.qpos[3:7] = [1.0, 0.0, 0.0, 0.0]
-        self.data.qpos[:2] += self.np_random.uniform(-0.025, 0.025, size=2)
+        start = self.object_qpos_adr
+        self.data.qpos[start : start + 3] = [0.0, 0.0, self.spawn_z]
+        self.data.qpos[start + 3 : start + 7] = [1.0, 0.0, 0.0, 0.0]
+        self.data.qpos[start : start + 2] += self.np_random.uniform(-0.015, 0.015, size=2)
+        self.data.qpos[list(self.pusher_qpos_adrs)] = 0.0
         mujoco.mj_forward(self.model, self.data)
         return self._observation(), self._info()
 
     def step(self, action):
         action = np.clip(np.asarray(action, dtype=np.float64), -1.0, 1.0)
-        self.data.xfrc_applied[self.body_id, :3] = action * self.force_scale
+        self.data.ctrl[:] = action * 0.6
         mujoco.mj_step(self.model, self.data, nstep=self.frame_skip)
-        self.data.xfrc_applied[self.body_id] = 0.0
-        position = self.data.qpos[:3]
+        position = self.data.xpos[self.body_id]
         distance = float(np.linalg.norm(position[:2] - self.target[:2]))
         rotation = np.empty(9, dtype=np.float64)
-        mujoco.mju_quat2Mat(rotation, self.data.qpos[3:7])
+        start = self.object_qpos_adr
+        mujoco.mju_quat2Mat(rotation, self.data.qpos[start + 3 : start + 7])
         upright = float(rotation.reshape(3, 3)[2, 2])
         control_cost = 0.01 * float(np.square(action).sum())
         if self.task == "push-to-target":
-            reward = -distance - control_cost + (2.0 if distance < 0.05 else 0.0)
+            reward = float(self.compute_reward(position, self.target, {{}})) - control_cost
             success = distance < 0.05
         else:
             displacement = float(np.linalg.norm(position[:2]))
@@ -569,9 +829,12 @@ class KinetiWeaveObjectEnv(gym.Env):
         return self._observation(), reward, terminated, False, self._info(success)
 
     def _info(self, success=False):
+        position = self.data.xpos[self.body_id]
         return {{
             "success": bool(success),
-            "distance_to_target": float(np.linalg.norm(self.data.qpos[:2] - self.target[:2])),
+            "distance_to_target": float(np.linalg.norm(position[:2] - self.target[:2])),
+            "controller": "actuated-planar-pusher",
+            "contacts": int(self.data.ncon),
         }}
 
     def close(self):
@@ -612,12 +875,15 @@ Generated by KinetiWeave from `{asset.source_filename}`.
 - Mass: {environment.mass_kg:g} kg
 - Longest physical dimension: {environment.target_size_m:g} m
 - Collision proxy: conservative convex hull
+- Controller: actuated 2-DoF planar pusher (contact-only object interaction)
+- Observation: goal-aware Gymnasium Dict for HER-compatible training
+- Validation: MJCF compile plus deterministic finite-state rollout
 
 ```powershell
 python -m pip install -e .
 python -c '{smoke_test}'
 ```
 
-This package is a generated baseline, not a validated dynamics model. Confirm scale, mass, friction,
-inertia, task semantics, and reward behavior before training or publishing results.
+The package passes a computational physics smoke test, not real-world system identification. Confirm
+scale, mass, inertia, friction, contact behavior, task semantics, and rewards before publishing.
 """

@@ -110,6 +110,12 @@ export async function createEnvironment(
   );
 }
 
+export async function validateEnvironment(id: string): Promise<EnvironmentRecord> {
+  return readJson(
+    await fetch(`/api/environments/${id}/validate`, { method: "POST" }),
+  );
+}
+
 export function environmentPackageUrl(environment: EnvironmentRecord): string {
   return `/api/environments/${environment.id}/package`;
 }

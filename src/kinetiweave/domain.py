@@ -53,6 +53,11 @@ class EnvironmentStatus(StrEnum):
     BLOCKED = "blocked"
 
 
+class ValidationStatus(StrEnum):
+    PASSED = "passed"
+    FAILED = "failed"
+
+
 class TaskTemplate(StrEnum):
     STABILIZE = "stabilize"
     PUSH_TO_TARGET = "push-to-target"
@@ -126,6 +131,23 @@ class AssetRecord(BaseModel):
     metadata: dict[str, Any] = Field(default_factory=dict)
 
 
+class PhysicsValidation(BaseModel):
+    status: ValidationStatus
+    checked_at: datetime
+    model_compiled: bool
+    finite_rollout: bool
+    simulation_steps: int = Field(ge=0)
+    simulated_seconds: float = Field(ge=0)
+    pusher_object_contacts: int = Field(ge=0)
+    final_target_error_m: float = Field(ge=0)
+    min_object_height_m: float
+    max_generalized_speed: float = Field(ge=0)
+    nq: int = Field(ge=0)
+    nv: int = Field(ge=0)
+    nu: int = Field(ge=0)
+    checks: list[str] = Field(default_factory=list)
+
+
 class EnvironmentRecord(BaseModel):
     id: str
     created_at: datetime
@@ -141,6 +163,7 @@ class EnvironmentRecord(BaseModel):
     target_size_m: float = Field(gt=0)
     scale_to_meters: float = Field(gt=0)
     package_path: str | None = None
+    validation: PhysicsValidation | None = None
     validation_errors: list[str] = Field(default_factory=list)
     metadata: dict[str, Any] = Field(default_factory=dict)
 

@@ -252,6 +252,18 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         except EnvironmentBuildError as exc:
             raise HTTPException(status_code=422, detail=str(exc)) from exc
 
+    @app.post(
+        "/api/environments/{environment_id}/validate",
+        response_model=EnvironmentRecord,
+    )
+    def validate_environment(environment_id: str) -> EnvironmentRecord:
+        try:
+            return catalog.validate_environment(environment_id)
+        except KeyError as exc:
+            raise HTTPException(status_code=404, detail="RL environment not found") from exc
+        except EnvironmentBuildError as exc:
+            raise HTTPException(status_code=409, detail=str(exc)) from exc
+
     @app.get("/api/environments/{environment_id}/package")
     def get_environment_package(environment_id: str) -> FileResponse:
         try:

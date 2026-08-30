@@ -8,6 +8,7 @@ import gymnasium as gym
 import mujoco
 import numpy as np
 import trimesh
+from gymnasium.utils.env_checker import check_env
 
 from kinetiweave.catalog import CatalogService, CatalogStore
 from kinetiweave.config import Settings
@@ -32,8 +33,8 @@ def test_import_and_generate_runnable_rl_environment(tmp_path: Path) -> None:
     environment = service.create_environment(
         EnvironmentCreate(
             asset_id=asset.id,
-            name="Block Stabilization",
-            task_template=TaskTemplate.STABILIZE,
+            name="Block Push",
+            task_template=TaskTemplate.PUSH_TO_TARGET,
             mass_kg=0.4,
             target_size_m=0.2,
             max_episode_steps=250,
@@ -43,7 +44,11 @@ def test_import_and_generate_runnable_rl_environment(tmp_path: Path) -> None:
     assert environment.status is EnvironmentStatus.READY
     assert environment.package_path is not None
     assert Path(environment.package_path).is_file()
-    assert environment.metadata["method"] == "convex-hull"
+    assert environment.metadata["collision_proxy"]["method"] == "convex-hull"
+    assert environment.metadata["task_model"]["controller"] == "actuated-planar-pusher"
+    assert environment.validation is not None
+    assert environment.validation.status.value == "passed"
+    assert environment.validation.pusher_object_contacts > 0
 
     package_name = f"kinetiweave_env_{environment.id[:8]}"
     project_root = settings.environments_dir / environment.id / package_name
@@ -53,23 +58,31 @@ def test_import_and_generate_runnable_rl_environment(tmp_path: Path) -> None:
     assert "original_path" not in manifest_text
     assert "visual_path" not in manifest_text
     model = mujoco.MjModel.from_xml_path(str(model_path))
-    assert model.nq == 7
+    assert model.nq == 9
+    assert model.nv == 8
+    assert model.nu == 2
 
     sys.path.insert(0, str(project_root))
     try:
         importlib.import_module(package_name)
         rl_env = gym.make(environment.gymnasium_id)
+        check_env(rl_env.unwrapped, skip_render_check=True)
         observation, info = rl_env.reset(seed=7)
-        assert observation.shape == (16,)
-        assert np.isfinite(observation).all()
+        assert observation["observation"].shape == (21,)
+        assert observation["achieved_goal"].shape == (3,)
+        assert np.isfinite(observation["observation"]).all()
         assert "distance_to_target" in info
         next_observation, reward, terminated, truncated, _ = rl_env.step(
-            np.zeros(3, dtype=np.float32)
+            np.zeros(2, dtype=np.float32)
         )
-        assert next_observation.shape == (16,)
+        assert next_observation["observation"].shape == (21,)
         assert np.isfinite(reward)
         assert isinstance(terminated, bool)
         assert isinstance(truncated, bool)
         rl_env.close()
     finally:
         sys.path.remove(str(project_root))
+
+    revalidated = service.validate_environment(environment.id)
+    assert revalidated.validation is not None
+    assert revalidated.validation.status.value == "passed"

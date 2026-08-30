@@ -28,7 +28,9 @@ images / video / CAD / 3D assets
 **Capture-to-RL vertical slice.** The Studio now persists every successful reconstruction in an
 Object Library, imports STEP/STP and common mesh formats, records geometry evidence, and generates
 downloadable MuJoCo + Gymnasium environments after the user supplies real scale and mass. Captured
-point clouds and non-watertight meshes use an explicitly labeled convex-hull collision proxy.
+point clouds and non-watertight meshes use an explicitly labeled convex-hull collision proxy. New
+environments include a visible, actuated 2-DoF planar pusher, goal-aware observations, and a saved
+deterministic physics-validation report instead of applying invisible forces to the object.
 
 ## Why KinetiWeave?
 
@@ -54,7 +56,12 @@ learning into one inspectable pipeline.
 - **Capture:** reconstruct video locally with DA3 Small or COLMAP.
 - **Objects:** review saved geometry or import STEP, STP, GLB, GLTF, OBJ, STL, PLY, OFF, or 3MF.
 - **Environments:** generate a conservative collision mesh, MJCF model, registered Gymnasium
-  package, manifest, and install instructions in one ZIP.
+  package, manifest, validation evidence, and install instructions in one ZIP. Push tasks expose
+  pusher velocity—not object motion—as the action, so interaction occurs through MuJoCo contacts.
+
+Every environment build must compile in MuJoCo and pass a bounded rollout that checks finite
+simulator state, floor penetration, generalized speed, and task-required pusher/object contact. The
+Studio exposes those measurements and can re-run the check before export.
 
 STEP import preserves transferred geometry, not the original CAD application's parametric feature
 history. Every generated environment is a starting model: validate physical scale, mass, inertia,
@@ -65,20 +72,24 @@ friction, contacts, tasks, and rewards before publishing training claims.
 - **Canonical model:** a versioned KinetiWeave schema independent of MJCF, URDF, SDF, or USD.
 - **First simulator backend:** MuJoCo; PyBullet is the first compatibility backend.
 - **Environment API:** Gymnasium with explicit termination and truncation.
+- **Manipulation baseline:** a goal-aware, contact-driven planar pusher; robot arms and grippers are
+  asset-backed future controllers, not simulated claims in the current package.
 - **Studio:** React and Three.js; the browser never becomes the source of physics truth.
 - **Reconstruction:** laptop-first DA3 Small default with an optional classical COLMAP path.
 - **Project license:** Apache-2.0 with per-asset and per-model provenance.
 
 Full rationale: [architecture](docs/research/03-architecture.md),
 [license analysis](docs/research/05-license-analysis.md), and
-[video-to-3D decision](docs/research/06-video-to-3d-decision.md).
+[video-to-3D decision](docs/research/06-video-to-3d-decision.md), and
+[embodied-task validation](docs/research/07-embodied-task-validation.md).
 
 Research reports: [landscape](docs/research/01-landscape.md),
 [literature review](docs/research/02-literature-review.md),
 [architecture](docs/research/03-architecture.md),
 [benchmark plan](docs/research/04-benchmark-plan.md),
 [license analysis](docs/research/05-license-analysis.md), and
-[video-to-3D decision](docs/research/06-video-to-3d-decision.md).
+[video-to-3D decision](docs/research/06-video-to-3d-decision.md), and
+[embodied-task validation](docs/research/07-embodied-task-validation.md).
 
 ## Run locally on Windows
 

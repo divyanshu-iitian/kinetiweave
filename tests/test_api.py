@@ -51,6 +51,10 @@ def test_object_import_and_environment_api(tmp_path: Path) -> None:
         assert created.status_code == 201
         environment = created.json()
         assert environment["status"] == "ready"
+        assert environment["validation"]["status"] == "passed"
+        validated = client.post(f"/api/environments/{environment['id']}/validate")
+        assert validated.status_code == 200
+        assert validated.json()["validation"]["finite_rollout"] is True
         package = client.get(f"/api/environments/{environment['id']}/package")
         assert package.status_code == 200
         assert package.headers["content-type"] == "application/zip"
