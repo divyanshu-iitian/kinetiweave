@@ -3,6 +3,7 @@ import {
   ArrowClockwise,
   Check,
   CircleHalf,
+  ChartLineUp,
   Cpu,
   Cube,
   DownloadSimple,
@@ -33,6 +34,7 @@ import {
   uploadVideo,
 } from "./api";
 import { CaptureDropzone } from "./components/CaptureDropzone";
+import { BenchmarkWorkspace } from "./components/BenchmarkWorkspace";
 import { EnvironmentWorkspace } from "./components/EnvironmentWorkspace";
 import { ObjectWorkspace } from "./components/ObjectWorkspace";
 import type {
@@ -44,7 +46,7 @@ import type {
 } from "./types";
 
 type Appearance = "dark" | "light";
-type WorkspaceView = "capture" | "objects" | "environments";
+type WorkspaceView = "capture" | "objects" | "environments" | "benchmarks";
 
 const GeometryViewport = lazy(() =>
   import("./components/GeometryViewport").then((module) => ({
@@ -176,6 +178,9 @@ export default function App({ appearance, onAppearanceChange }: AppProps) {
           <button type="button" className={view === "environments" ? "active" : ""} onClick={() => setView("environments")}>
             <Robot size={17} /> Environments
           </button>
+          <button type="button" className={view === "benchmarks" ? "active" : ""} onClick={() => setView("benchmarks")}>
+            <ChartLineUp size={17} /> Benchmarks
+          </button>
         </nav>
         <div className="topbar-actions">
           <span className="hardware-summary">
@@ -230,6 +235,8 @@ export default function App({ appearance, onAppearanceChange }: AppProps) {
           onError={setError}
         />
       )}
+
+      {view === "benchmarks" && <BenchmarkWorkspace onError={setError} />}
 
       {view === "capture" && <div className="workbench">
         <aside

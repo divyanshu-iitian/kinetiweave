@@ -1,0 +1,19 @@
+{
+  "schema_version": "kinetiweave.benchmark/v1",
+  "id": "actuated-link-v1",
+  "name": "Deterministic actuated link",
+  "timestep_s": 0.005,
+  "duration_s": 2.0,
+  "gravity_m_s2": 9.81,
+  "link_length_m": 0.5,
+  "link_mass_kg": 1.0,
+  "link_inertia_kg_m2": 0.020833333333333332,
+  "joint_damping_nms_rad": 0.05,
+  "joint_limit_lower_rad": -2.8,
+  "joint_limit_upper_rad": 2.8,
+  "initial_angle_rad": 0.35,
+  "initial_velocity_rad_s": -0.1,
+  "torque_limit_nm": 1.0,
+  "angle_tolerance_rad": 0.000002,
+  "velocity_tolerance_rad_s": 0.00002
+}

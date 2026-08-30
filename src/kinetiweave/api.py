@@ -13,6 +13,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 
+from kinetiweave.benchmark import BenchmarkService, BenchmarkUnavailableError
 from kinetiweave.catalog import (
     AssetImportError,
     CatalogService,
@@ -21,8 +22,10 @@ from kinetiweave.catalog import (
 )
 from kinetiweave.config import Settings
 from kinetiweave.domain import (
+    ActuatedLinkContract,
     AssetRecord,
     BackendChoice,
+    BenchmarkReport,
     CaptureProfile,
     EnvironmentCreate,
     EnvironmentRecord,
@@ -63,6 +66,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     store = JobStore(configured.database_path)
     catalog_store = CatalogStore(configured.database_path)
     catalog = CatalogService(configured, catalog_store)
+    benchmarks = BenchmarkService(configured)
     pipeline = PipelineService(configured, store, catalog=catalog)
 
     @asynccontextmanager
@@ -80,6 +84,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.state.store = store
     app.state.pipeline = pipeline
     app.state.catalog = catalog
+    app.state.benchmarks = benchmarks
     app.add_middleware(
         CORSMiddleware,
         allow_origins=[
@@ -99,6 +104,45 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     @app.get("/api/system", response_model=SystemCapabilities)
     def system() -> SystemCapabilities:
         return detect_capabilities()
+
+    @app.get(
+        "/api/benchmarks/actuated-link/contract",
+        response_model=ActuatedLinkContract,
+    )
+    def actuated_link_contract() -> ActuatedLinkContract:
+        return benchmarks.get_contract()
+
+    @app.get(
+        "/api/benchmarks/actuated-link/latest",
+        response_model=BenchmarkReport,
+    )
+    def latest_actuated_link_benchmark() -> BenchmarkReport:
+        try:
+            return benchmarks.latest()
+        except BenchmarkUnavailableError as exc:
+            raise HTTPException(status_code=404, detail=str(exc)) from exc
+
+    @app.post(
+        "/api/benchmarks/actuated-link/run",
+        response_model=BenchmarkReport,
+    )
+    def run_actuated_link_benchmark() -> BenchmarkReport:
+        try:
+            return benchmarks.run()
+        except BenchmarkUnavailableError as exc:
+            raise HTTPException(status_code=503, detail=str(exc)) from exc
+
+    @app.get("/api/benchmarks/actuated-link/report")
+    def download_actuated_link_benchmark() -> FileResponse:
+        try:
+            report = benchmarks.latest()
+        except BenchmarkUnavailableError as exc:
+            raise HTTPException(status_code=404, detail=str(exc)) from exc
+        return FileResponse(
+            benchmarks.report_path,
+            media_type="application/json",
+            filename=f"kinetiweave-{report.contract.id}-{report.id[:8]}.json",
+        )
 
     @app.get("/api/jobs", response_model=list[JobRecord])
     def list_jobs(limit: int = 25) -> list[JobRecord]:

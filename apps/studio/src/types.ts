@@ -166,3 +166,62 @@ export interface EnvironmentCreate {
   target_size_m: number;
   max_episode_steps: number;
 }
+
+export interface ActuatedLinkContract {
+  schema_version: string;
+  id: string;
+  name: string;
+  timestep_s: number;
+  duration_s: number;
+  gravity_m_s2: number;
+  link_length_m: number;
+  link_mass_kg: number;
+  link_inertia_kg_m2: number;
+  joint_damping_nms_rad: number;
+  joint_limit_lower_rad: number;
+  joint_limit_upper_rad: number;
+  initial_angle_rad: number;
+  initial_velocity_rad_s: number;
+  torque_limit_nm: number;
+  angle_tolerance_rad: number;
+  velocity_tolerance_rad_s: number;
+}
+
+export interface TracePoint {
+  time_s: number;
+  torque_nm: number;
+  angle_rad: number;
+  angular_velocity_rad_s: number;
+}
+
+export interface ParameterEvidence {
+  parameter: string;
+  authored: number;
+  compiled: number;
+  unit: string;
+  absolute_error: number;
+}
+
+export interface BenchmarkReport {
+  id: string;
+  run_at: string;
+  status: "passed" | "failed";
+  contract: ActuatedLinkContract;
+  simulator: string;
+  simulator_version: string;
+  oracle: string;
+  parameters: ParameterEvidence[];
+  comparison: {
+    samples: number;
+    angle_rmse_rad: number;
+    velocity_rmse_rad_s: number;
+    max_angle_error_rad: number;
+    max_velocity_error_rad_s: number;
+    deterministic_replay_max_error: number;
+    reference_trace_sha256: string;
+    mujoco_trace_sha256: string;
+  };
+  reference_trace: TracePoint[];
+  simulator_trace: TracePoint[];
+  checks: string[];
+}

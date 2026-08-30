@@ -39,6 +39,10 @@ class Settings:
         return self.data_dir / "environments"
 
     @property
+    def benchmarks_dir(self) -> Path:
+        return self.data_dir / "benchmarks"
+
+    @property
     def database_path(self) -> Path:
         return self.data_dir / "kinetiweave.sqlite3"
 
@@ -54,3 +58,4 @@ class Settings:
         self.jobs_dir.mkdir(parents=True, exist_ok=True)
         self.assets_dir.mkdir(parents=True, exist_ok=True)
         self.environments_dir.mkdir(parents=True, exist_ok=True)
+        self.benchmarks_dir.mkdir(parents=True, exist_ok=True)
