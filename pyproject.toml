@@ -1,0 +1,52 @@
+[build-system]
+requires = ["hatchling>=1.27"]
+build-backend = "hatchling.build"
+
+[project]
+name = "kinetiweave"
+version = "0.1.0"
+description = "Laptop-first video-to-3D reconstruction workspace for robotics digital twins"
+readme = "README.md"
+requires-python = ">=3.11,<3.14"
+license = {file = "LICENSE"}
+authors = [{name = "KinetiWeave contributors"}]
+dependencies = [
+  "cascadio>=0.1,<0.2",
+  "fastapi>=0.115,<1",
+  "numpy>=1.26,<2",
+  "opencv-python-headless>=4.10,<5",
+  "pydantic>=2.10,<3",
+  "python-multipart>=0.0.20,<1",
+  "scipy>=1.14,<2",
+  "trimesh>=4.5,<5",
+  "uvicorn[standard]>=0.34,<1",
+]
+
+[project.optional-dependencies]
+dev = [
+  "httpx>=0.28,<1",
+  "pytest>=8.3,<9",
+  "pytest-cov>=6,<7",
+  "ruff>=0.9,<1",
+]
+rl = [
+  "gymnasium>=1.1,<2",
+  "mujoco>=3.3,<4",
+]
+
+[project.scripts]
+kinetiweave = "kinetiweave.cli:main"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/kinetiweave"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-q"
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B", "SIM"]

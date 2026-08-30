@@ -2,9 +2,9 @@
 
 > From real machines to learning worlds.
 
-KinetiWeave is an open-source research platform for turning real robots and physical objects into reproducible digital twins, robotics simulations, and reinforcement-learning environments.
-
-The project is intentionally being built research-first:
+KinetiWeave is an open-source, laptop-first workspace for turning real objects and robots into
+inspectable 3D reconstructions, digital twins, simulation assets, and reinforcement-learning
+environments.
 
 ```text
 images / video / CAD / 3D assets
@@ -25,86 +25,121 @@ images / video / CAD / 3D assets
 
 ## Status
 
-**Phase 0 — Research foundation.** The architecture, ecosystem evaluation, benchmark protocol, and license policy are complete. No simulator, editor, reconstruction, or training feature is claimed as implemented yet.
-
-The first executable milestone will be a headless, deterministic pendulum/actuated-link environment backed by MuJoCo and exposed through Gymnasium. The web editor follows only after the schema and backend contract are validated.
+**Capture-to-RL vertical slice.** The Studio now persists every successful reconstruction in an
+Object Library, imports STEP/STP and common mesh formats, records geometry evidence, and generates
+downloadable MuJoCo + Gymnasium environments after the user supplies real scale and mass. Captured
+point clouds and non-watertight meshes use an explicitly labeled convex-hull collision proxy.
 
 ## Why KinetiWeave?
 
-Robotics research is fragmented across asset tools, simulator-specific robot formats, task definitions, RL libraries, and experiment trackers. KinetiWeave will connect these parts without hiding their boundaries or pretending that one simulator or reconstruction model fits every task.
+Robotics research is fragmented across asset tools, simulator-specific robot formats, task
+definitions, RL libraries, and experiment trackers. KinetiWeave connects these parts without hiding
+their boundaries or pretending that one simulator or reconstruction model fits every task.
 
-The name combines *kinetic* systems with the idea of weaving geometry, articulation, physics, sensing, and learning into one inspectable pipeline.
+The name combines *kinetic* systems with weaving geometry, articulation, physics, sensing, and
+learning into one inspectable pipeline.
 
-## Intended workflow
+## Implemented video workflow
 
-1. Import GLB/GLTF, OBJ, STL, URDF, or reconstruction output.
-2. Build a hierarchy of links, joints, actuators, sensors, visuals, and collisions.
-3. validate mass, inertia, units, transforms, and joint limits.
-4. Compile the same digital twin to supported simulator backends.
-5. Define observations, actions, rewards, termination, and randomization.
-6. Run the task through the Gymnasium API with or without the GUI.
-7. Train and evaluate baselines with complete provenance and multiple seeds.
-8. Export environments, policies, model cards, and benchmark artifacts.
+1. Upload an MP4, MOV, WebM, AVI, or MKV capture to a loopback-only service.
+2. Validate timing, duration, resolution, and decodability.
+3. Select sharp, temporally distributed views and report capture-health evidence.
+4. Reconstruct relative-scale geometry with DA3 Small or an optional COLMAP installation.
+5. Inspect the real GLB artifact in a Three.js viewport and download its provenance manifest.
+6. Find the result permanently in Objects, alongside imported CAD and mesh assets.
+7. Enter a measured dimension and mass, choose an RL task, and export a runnable environment.
 
-## Architecture decision summary
+## Object, CAD, and RL workflow
 
-- **Canonical model:** versioned KinetiWeave schema, independent of MJCF, URDF, SDF, or USD.
-- **First backend:** MuJoCo; PyBullet is the first compatibility backend.
-- **Environment API:** Gymnasium, including explicit termination and truncation.
-- **First RL integration:** Stable-Baselines3 for PPO, SAC, and TD3 baselines.
-- **Studio direction:** React, Three.js, and React Three Fiber; the browser never becomes the source of physics truth.
-- **Geometry tooling:** trimesh/Open3D behind adapters with provenance for every imported asset.
-- **Reconstruction:** optional multi-view pipeline; classical COLMAP baseline before learned alternatives.
-- **Project license:** Apache-2.0, with per-asset and per-model license manifests.
+- **Capture:** reconstruct video locally with DA3 Small or COLMAP.
+- **Objects:** review saved geometry or import STEP, STP, GLB, GLTF, OBJ, STL, PLY, OFF, or 3MF.
+- **Environments:** generate a conservative collision mesh, MJCF model, registered Gymnasium
+  package, manifest, and install instructions in one ZIP.
 
-Full rationale: [architecture](docs/research/03-architecture.md) and [license analysis](docs/research/05-license-analysis.md).
+STEP import preserves transferred geometry, not the original CAD application's parametric feature
+history. Every generated environment is a starting model: validate physical scale, mass, inertia,
+friction, contacts, tasks, and rewards before publishing training claims.
+
+## Architecture decisions
+
+- **Canonical model:** a versioned KinetiWeave schema independent of MJCF, URDF, SDF, or USD.
+- **First simulator backend:** MuJoCo; PyBullet is the first compatibility backend.
+- **Environment API:** Gymnasium with explicit termination and truncation.
+- **Studio:** React and Three.js; the browser never becomes the source of physics truth.
+- **Reconstruction:** laptop-first DA3 Small default with an optional classical COLMAP path.
+- **Project license:** Apache-2.0 with per-asset and per-model provenance.
+
+Full rationale: [architecture](docs/research/03-architecture.md),
+[license analysis](docs/research/05-license-analysis.md), and
+[video-to-3D decision](docs/research/06-video-to-3d-decision.md).
+
+Research reports: [landscape](docs/research/01-landscape.md),
+[literature review](docs/research/02-literature-review.md),
+[architecture](docs/research/03-architecture.md),
+[benchmark plan](docs/research/04-benchmark-plan.md),
+[license analysis](docs/research/05-license-analysis.md), and
+[video-to-3D decision](docs/research/06-video-to-3d-decision.md).
+
+## Run locally on Windows
+
+The setup is isolated in `.venv`, pins the audited DA3 source revision, installs CUDA-enabled
+PyTorch, and builds Studio. It does not modify global Python packages.
+
+```powershell
+powershell -ExecutionPolicy Bypass -File scripts/setup-da3.ps1
+powershell -ExecutionPolicy Bypass -File scripts/start.ps1
+```
+
+Then open `http://127.0.0.1:8765`. Upload a 15-40 second orbit video in which the object stays still
+while the camera moves around it. First reconstruction also downloads DA3 Small model weights from
+Hugging Face.
+
+Read the [capture guide](docs/video-capture-guide.md) before judging reconstruction quality.
+
+## Developer checks
+
+```powershell
+.\.venv\Scripts\python.exe -m pytest
+.\.venv\Scripts\python.exe -m ruff check src tests
+Set-Location apps\studio
+npm run lint
+npm run build
+```
+
+The supported baseline is Python 3.11 on Windows. Backend support is stated explicitly rather than
+implied globally.
 
 ## Repository map
 
 ```text
-apps/             future user-facing applications
+apps/studio/      React and Three.js local reconstruction workspace
 benchmarks/       benchmark definitions and immutable result artifacts
 configs/          versioned task, simulator, and training configuration
 docs/research/    evidence, decisions, and research protocol
-examples/         minimal reproducible examples
-models/           model cards and metadata only; weights are not committed
-packages/         future Python and TypeScript packages
-scripts/          repository and experiment automation
+src/kinetiweave/  local API, capture analysis, jobs, and reconstruction adapters
+scripts/          setup, repository, and experiment automation
 tests/            unit, contract, integration, and determinism tests
 ```
 
-## Research reports
+## Roadmap and contribution
 
-- [Open-source landscape](docs/research/01-landscape.md)
-- [Literature review](docs/research/02-literature-review.md)
-- [Technical architecture](docs/research/03-architecture.md)
-- [Benchmark plan](docs/research/04-benchmark-plan.md)
-- [License analysis](docs/research/05-license-analysis.md)
+See [ROADMAP.md](ROADMAP.md). Read [CONTRIBUTING.md](CONTRIBUTING.md) before opening a change.
+Experimental features must be labeled, and planned features must not appear as working controls.
 
-## Development setup
+Report vulnerabilities privately using [SECURITY.md](SECURITY.md). Do not attach robot credentials,
+tokens, private datasets, or proprietary CAD to public issues.
 
-Phase 0 has no runtime dependencies. To validate the repository:
+KinetiWeave's original code and documentation are licensed under [Apache-2.0](LICENSE). Third-party
+software and models retain their own licenses; see [third-party notices](THIRD_PARTY_NOTICES.md).
+Citation metadata is provided in [CITATION.cff](CITATION.cff).
 
-```bash
-python scripts/check_repository.py
+## Hugging Face Space
+
+The repository includes a Docker Space definition and a guarded publisher. The free CPU image runs
+the Object Library, CAD/mesh import, and RL export; video reconstruction still needs a configured
+DA3/COLMAP backend and suitable compute.
+
+```powershell
+.\.venv\Scripts\hf.exe auth login
+.\.venv\Scripts\python.exe scripts\publish_huggingface.py
 ```
-
-The supported development baseline is Python 3.11+ on Windows, Linux, and macOS. Simulator-specific support will be stated per backend rather than implied globally.
-
-## Roadmap
-
-See [ROADMAP.md](ROADMAP.md). Milestone order is contract-first: research, schema and headless simulation, then editor, RL baselines, reconstruction, and public benchmark releases.
-
-## Contributing
-
-Read [CONTRIBUTING.md](CONTRIBUTING.md) before opening a change. Major dependencies and assets require a license/provenance review. Experimental features must be labeled; planned features must not appear as working controls.
-
-## Security
-
-Please report vulnerabilities privately using the process in [SECURITY.md](SECURITY.md). Do not attach robot credentials, tokens, private datasets, or proprietary CAD to public issues.
-
-## License and citation
-
-KinetiWeave's original code and documentation are licensed under [Apache-2.0](LICENSE). Third-party code, models, and assets retain their own licenses and must be recorded in the future dependency/asset manifests.
-
-If this foundation is useful in academic work, citation metadata is provided in [CITATION.cff](CITATION.cff).
