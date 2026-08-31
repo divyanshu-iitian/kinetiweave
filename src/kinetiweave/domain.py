@@ -53,6 +53,16 @@ class EnvironmentStatus(StrEnum):
     BLOCKED = "blocked"
 
 
+class ValidationStatus(StrEnum):
+    PASSED = "passed"
+    FAILED = "failed"
+
+
+class BenchmarkStatus(StrEnum):
+    PASSED = "passed"
+    FAILED = "failed"
+
+
 class TaskTemplate(StrEnum):
     STABILIZE = "stabilize"
     PUSH_TO_TARGET = "push-to-target"
@@ -126,6 +136,23 @@ class AssetRecord(BaseModel):
     metadata: dict[str, Any] = Field(default_factory=dict)
 
 
+class PhysicsValidation(BaseModel):
+    status: ValidationStatus
+    checked_at: datetime
+    model_compiled: bool
+    finite_rollout: bool
+    simulation_steps: int = Field(ge=0)
+    simulated_seconds: float = Field(ge=0)
+    pusher_object_contacts: int = Field(ge=0)
+    final_target_error_m: float = Field(ge=0)
+    min_object_height_m: float
+    max_generalized_speed: float = Field(ge=0)
+    nq: int = Field(ge=0)
+    nv: int = Field(ge=0)
+    nu: int = Field(ge=0)
+    checks: list[str] = Field(default_factory=list)
+
+
 class EnvironmentRecord(BaseModel):
     id: str
     created_at: datetime
@@ -141,6 +168,7 @@ class EnvironmentRecord(BaseModel):
     target_size_m: float = Field(gt=0)
     scale_to_meters: float = Field(gt=0)
     package_path: str | None = None
+    validation: PhysicsValidation | None = None
     validation_errors: list[str] = Field(default_factory=list)
     metadata: dict[str, Any] = Field(default_factory=dict)
 
@@ -152,6 +180,67 @@ class EnvironmentCreate(BaseModel):
     mass_kg: float = Field(gt=0, le=100_000)
     target_size_m: float = Field(gt=0, le=1000)
     max_episode_steps: int = Field(default=500, ge=10, le=100_000)
+
+
+class ActuatedLinkContract(BaseModel):
+    schema_version: str
+    id: str
+    name: str
+    timestep_s: float = Field(gt=0, le=0.05)
+    duration_s: float = Field(gt=0, le=30)
+    gravity_m_s2: float = Field(gt=0, le=100)
+    link_length_m: float = Field(gt=0, le=10)
+    link_mass_kg: float = Field(gt=0, le=10_000)
+    link_inertia_kg_m2: float = Field(gt=0)
+    joint_damping_nms_rad: float = Field(ge=0)
+    joint_limit_lower_rad: float
+    joint_limit_upper_rad: float
+    initial_angle_rad: float
+    initial_velocity_rad_s: float
+    torque_limit_nm: float = Field(gt=0)
+    angle_tolerance_rad: float = Field(gt=0)
+    velocity_tolerance_rad_s: float = Field(gt=0)
+
+
+class TracePoint(BaseModel):
+    time_s: float = Field(ge=0)
+    torque_nm: float
+    angle_rad: float
+    angular_velocity_rad_s: float
+
+
+class ParameterEvidence(BaseModel):
+    parameter: str
+    authored: float
+    compiled: float
+    unit: str
+    absolute_error: float = Field(ge=0)
+
+
+class TraceComparison(BaseModel):
+    samples: int = Field(gt=1)
+    angle_rmse_rad: float = Field(ge=0)
+    velocity_rmse_rad_s: float = Field(ge=0)
+    max_angle_error_rad: float = Field(ge=0)
+    max_velocity_error_rad_s: float = Field(ge=0)
+    deterministic_replay_max_error: float = Field(ge=0)
+    reference_trace_sha256: str
+    mujoco_trace_sha256: str
+
+
+class BenchmarkReport(BaseModel):
+    id: str
+    run_at: datetime
+    status: BenchmarkStatus
+    contract: ActuatedLinkContract
+    simulator: str
+    simulator_version: str
+    oracle: str
+    parameters: list[ParameterEvidence]
+    comparison: TraceComparison
+    reference_trace: list[TracePoint]
+    simulator_trace: list[TracePoint]
+    checks: list[str]
 
 
 def utc_now() -> datetime:

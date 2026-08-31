@@ -51,6 +51,30 @@ def test_object_import_and_environment_api(tmp_path: Path) -> None:
         assert created.status_code == 201
         environment = created.json()
         assert environment["status"] == "ready"
+        assert environment["validation"]["status"] == "passed"
+        validated = client.post(f"/api/environments/{environment['id']}/validate")
+        assert validated.status_code == 200
+        assert validated.json()["validation"]["finite_rollout"] is True
         package = client.get(f"/api/environments/{environment['id']}/package")
         assert package.status_code == 200
         assert package.headers["content-type"] == "application/zip"
+
+
+def test_actuated_link_benchmark_api(tmp_path: Path) -> None:
+    app = create_app(Settings(data_dir=tmp_path / "data"))
+    with TestClient(app) as client:
+        contract = client.get("/api/benchmarks/actuated-link/contract")
+        assert contract.status_code == 200
+        assert contract.json()["id"] == "actuated-link-v1"
+        assert client.get("/api/benchmarks/actuated-link/latest").status_code == 404
+
+        run = client.post("/api/benchmarks/actuated-link/run")
+        assert run.status_code == 200
+        report = run.json()
+        assert report["status"] == "passed"
+        assert report["comparison"]["deterministic_replay_max_error"] == 0
+        assert client.get("/api/benchmarks/actuated-link/latest").json()["id"] == report["id"]
+
+        download = client.get("/api/benchmarks/actuated-link/report")
+        assert download.status_code == 200
+        assert download.headers["content-type"] == "application/json"

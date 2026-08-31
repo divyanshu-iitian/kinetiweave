@@ -15,6 +15,7 @@ export type CaptureProfile = "fast" | "balanced" | "quality";
 export type BackendChoice = "auto" | "da3" | "colmap";
 export type GeometryKind = "point-cloud" | "mesh" | "cad";
 export type EnvironmentStatus = "draft" | "ready" | "blocked";
+export type ValidationStatus = "passed" | "failed";
 export type TaskTemplate = "stabilize" | "push-to-target";
 
 export interface Artifact {
@@ -118,8 +119,43 @@ export interface EnvironmentRecord {
   target_size_m: number;
   scale_to_meters: number;
   package_path: string | null;
+  validation: PhysicsValidation | null;
   validation_errors: string[];
-  metadata: Record<string, unknown>;
+  metadata: {
+    source_geometry_kind?: GeometryKind;
+    collision_proxy?: {
+      method: string;
+      vertices: number;
+      faces: number;
+      watertight: boolean;
+      spawn_height_m: number;
+    };
+    task_model?: {
+      controller: string;
+      action: string;
+      action_dimensions: number;
+      observation: string;
+      reward: string;
+      target_x_m: number;
+    };
+  };
+}
+
+export interface PhysicsValidation {
+  status: ValidationStatus;
+  checked_at: string;
+  model_compiled: boolean;
+  finite_rollout: boolean;
+  simulation_steps: number;
+  simulated_seconds: number;
+  pusher_object_contacts: number;
+  final_target_error_m: number;
+  min_object_height_m: number;
+  max_generalized_speed: number;
+  nq: number;
+  nv: number;
+  nu: number;
+  checks: string[];
 }
 
 export interface EnvironmentCreate {
@@ -129,4 +165,63 @@ export interface EnvironmentCreate {
   mass_kg: number;
   target_size_m: number;
   max_episode_steps: number;
+}
+
+export interface ActuatedLinkContract {
+  schema_version: string;
+  id: string;
+  name: string;
+  timestep_s: number;
+  duration_s: number;
+  gravity_m_s2: number;
+  link_length_m: number;
+  link_mass_kg: number;
+  link_inertia_kg_m2: number;
+  joint_damping_nms_rad: number;
+  joint_limit_lower_rad: number;
+  joint_limit_upper_rad: number;
+  initial_angle_rad: number;
+  initial_velocity_rad_s: number;
+  torque_limit_nm: number;
+  angle_tolerance_rad: number;
+  velocity_tolerance_rad_s: number;
+}
+
+export interface TracePoint {
+  time_s: number;
+  torque_nm: number;
+  angle_rad: number;
+  angular_velocity_rad_s: number;
+}
+
+export interface ParameterEvidence {
+  parameter: string;
+  authored: number;
+  compiled: number;
+  unit: string;
+  absolute_error: number;
+}
+
+export interface BenchmarkReport {
+  id: string;
+  run_at: string;
+  status: "passed" | "failed";
+  contract: ActuatedLinkContract;
+  simulator: string;
+  simulator_version: string;
+  oracle: string;
+  parameters: ParameterEvidence[];
+  comparison: {
+    samples: number;
+    angle_rmse_rad: number;
+    velocity_rmse_rad_s: number;
+    max_angle_error_rad: number;
+    max_velocity_error_rad_s: number;
+    deterministic_replay_max_error: number;
+    reference_trace_sha256: string;
+    mujoco_trace_sha256: string;
+  };
+  reference_trace: TracePoint[];
+  simulator_trace: TracePoint[];
+  checks: string[];
 }

@@ -28,7 +28,13 @@ images / video / CAD / 3D assets
 **Capture-to-RL vertical slice.** The Studio now persists every successful reconstruction in an
 Object Library, imports STEP/STP and common mesh formats, records geometry evidence, and generates
 downloadable MuJoCo + Gymnasium environments after the user supplies real scale and mass. Captured
-point clouds and non-watertight meshes use an explicitly labeled convex-hull collision proxy.
+point clouds and non-watertight meshes use an explicitly labeled convex-hull collision proxy. New
+environments include a visible, actuated 2-DoF planar pusher, goal-aware observations, and a saved
+deterministic physics-validation report instead of applying invisible forces to the object.
+
+The executable `KinetiWeave/ActuatedLink-v1` milestone is also live. Its versioned contract is
+compiled to MuJoCo, run against an independently implemented rigid-link RK4 oracle, replayed for
+determinism, and published as inspectable traces, parameter evidence, tolerances, and SHA-256 hashes.
 
 ## Why KinetiWeave?
 
@@ -54,7 +60,36 @@ learning into one inspectable pipeline.
 - **Capture:** reconstruct video locally with DA3 Small or COLMAP.
 - **Objects:** review saved geometry or import STEP, STP, GLB, GLTF, OBJ, STL, PLY, OFF, or 3MF.
 - **Environments:** generate a conservative collision mesh, MJCF model, registered Gymnasium
-  package, manifest, and install instructions in one ZIP.
+  package, manifest, validation evidence, and install instructions in one ZIP. Push tasks expose
+  pusher velocity—not object motion—as the action, so interaction occurs through MuJoCo contacts.
+
+Every environment build must compile in MuJoCo and pass a bounded rollout that checks finite
+simulator state, floor penetration, generalized speed, and task-required pusher/object contact. The
+Studio exposes those measurements and can re-run the check before export.
+
+## Reproducibility benchmark
+
+Open **Benchmarks** in Studio and run the deterministic actuated-link experiment. The bounded run:
+
+1. loads the packaged `kinetiweave.benchmark/v1` contract;
+2. compiles timestep, gravity, mass, inertia, damping, limits, actuator, and initial state to MJCF;
+3. executes 401 state samples through MuJoCo RK4 and an independent rigid-link RK4 implementation;
+4. repeats MuJoCo from the same keyframe and measures deterministic replay error;
+5. compares authored and compiled parameters; and
+6. persists an exportable JSON report with both traces and their canonical SHA-256 identities.
+
+The matching Gymnasium environment is available as follows:
+
+```python
+import gymnasium as gym
+from kinetiweave.reference_env import register_actuated_link
+
+environment = gym.make(register_actuated_link())
+observation, info = environment.reset(seed=7)
+```
+
+This proves a bounded implementation agrees with its stated contract; it does not establish that
+MuJoCo is universally correct or that a learned policy transfers to hardware.
 
 STEP import preserves transferred geometry, not the original CAD application's parametric feature
 history. Every generated environment is a starting model: validate physical scale, mass, inertia,
@@ -65,20 +100,28 @@ friction, contacts, tasks, and rewards before publishing training claims.
 - **Canonical model:** a versioned KinetiWeave schema independent of MJCF, URDF, SDF, or USD.
 - **First simulator backend:** MuJoCo; PyBullet is the first compatibility backend.
 - **Environment API:** Gymnasium with explicit termination and truncation.
+- **Reference oracle:** independently implemented rigid-link RK4 dynamics; simulator output is not
+  compared against a second wrapper around the same state.
+- **Manipulation baseline:** a goal-aware, contact-driven planar pusher; robot arms and grippers are
+  asset-backed future controllers, not simulated claims in the current package.
 - **Studio:** React and Three.js; the browser never becomes the source of physics truth.
 - **Reconstruction:** laptop-first DA3 Small default with an optional classical COLMAP path.
 - **Project license:** Apache-2.0 with per-asset and per-model provenance.
 
 Full rationale: [architecture](docs/research/03-architecture.md),
 [license analysis](docs/research/05-license-analysis.md), and
-[video-to-3D decision](docs/research/06-video-to-3d-decision.md).
+[video-to-3D decision](docs/research/06-video-to-3d-decision.md), and
+[embodied-task validation](docs/research/07-embodied-task-validation.md), and
+[actuated-link reproducibility](docs/research/08-actuated-link-reproducibility.md).
 
 Research reports: [landscape](docs/research/01-landscape.md),
 [literature review](docs/research/02-literature-review.md),
 [architecture](docs/research/03-architecture.md),
 [benchmark plan](docs/research/04-benchmark-plan.md),
 [license analysis](docs/research/05-license-analysis.md), and
-[video-to-3D decision](docs/research/06-video-to-3d-decision.md).
+[video-to-3D decision](docs/research/06-video-to-3d-decision.md), and
+[embodied-task validation](docs/research/07-embodied-task-validation.md), and
+[actuated-link reproducibility](docs/research/08-actuated-link-reproducibility.md).
 
 ## Run locally on Windows
 

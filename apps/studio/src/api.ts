@@ -2,6 +2,8 @@ import type {
   BackendChoice,
   CaptureProfile,
   AssetRecord,
+  ActuatedLinkContract,
+  BenchmarkReport,
   EnvironmentCreate,
   EnvironmentRecord,
   JobRecord,
@@ -110,9 +112,33 @@ export async function createEnvironment(
   );
 }
 
+export async function validateEnvironment(id: string): Promise<EnvironmentRecord> {
+  return readJson(
+    await fetch(`/api/environments/${id}/validate`, { method: "POST" }),
+  );
+}
+
 export function environmentPackageUrl(environment: EnvironmentRecord): string {
   return `/api/environments/${environment.id}/package`;
 }
+
+export async function fetchActuatedLinkContract(): Promise<ActuatedLinkContract> {
+  return readJson(await fetch("/api/benchmarks/actuated-link/contract"));
+}
+
+export async function fetchLatestBenchmark(): Promise<BenchmarkReport | null> {
+  const response = await fetch("/api/benchmarks/actuated-link/latest");
+  if (response.status === 404) return null;
+  return readJson(response);
+}
+
+export async function runActuatedLinkBenchmark(): Promise<BenchmarkReport> {
+  return readJson(
+    await fetch("/api/benchmarks/actuated-link/run", { method: "POST" }),
+  );
+}
+
+export const benchmarkReportUrl = "/api/benchmarks/actuated-link/report";
 
 function uploadWithProgress<T>(
   url: string,
